@@ -3,15 +3,16 @@ import {
   createBlog,
   deleteBlog,
   getAllBlogs,
-  getBlogById,
+  getBlogBySlug,
   updateBlog,
 } from "../controllers/blogController";
+import { upload } from "../middlewares/upload";
 
 const blogRouter = express.Router();
-blogRouter.post("/", createBlog);
+blogRouter.post("/", upload.single("image"), createBlog);
 blogRouter.get("/", getAllBlogs);
-blogRouter.get("/:id", getBlogById);
-blogRouter.put("/:id", updateBlog);
-blogRouter.delete("/:id", deleteBlog);
+blogRouter.get("/:slug", getBlogBySlug);
+blogRouter.put("/:slug", upload.single("image"), updateBlog);
+blogRouter.delete("/:slug", deleteBlog);
 
 export default blogRouter;
