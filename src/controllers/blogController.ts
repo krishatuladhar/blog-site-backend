@@ -1,38 +1,60 @@
 import { Request, Response } from "express";
-import { CreateBlogInput, UpdateBlogInput } from "../types/blog";
+import { CreateBlogInput, UpdateBlogInput } from "../types/blogTypes";
 import * as blogService from "../services/blogService";
-
+import {
+  createBlogSchema,
+  updateBlogSchema,
+} from "../validators/blogValidators";
+import { getPageParams } from "../utils/pagination";
 export const createBlog = async (req: Request, res: Response) => {
   try {
     const data: CreateBlogInput = req.body;
-    if (!data.author_id || !data.title || !data.description) {
-      console.log("Author id , title and description are required");
+    console.log(req.body);
+    const { error } = createBlogSchema.validate(data);
+    if (error)
+      return res
+        .status(400)
+        .json({ success: false, message: error.details[0].message });
+
+    if (req.file) {
+      data.image = req.file.filename;
+      console.log(data.image);
     }
+
     const blog = await blogService.createBlog(data);
+    console.log(blog);
     res
       .status(201)
       .json({ success: true, message: "Blog Created successfully", blog });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error });
+    console.log(error);
   }
 };
 
 export const getAllBlogs = async (req: Request, res: Response) => {
   try {
-    const blogs = await blogService.getAllBlogs();
-    res.json({ success: true, blogs });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error });
+    const { page, limit, offset } = getPageParams(req.query);
+    console.log(req.query);
+
+    const blogs = await blogService.getAllBlogs(limit, offset);
+    blogs.page = page;
+    console.log(blogs);
+    res.json({ success: true, ...blogs });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+    console.log(error);
   }
 };
-export const getBlogById = async (req: Request, res: Response) => {
+export const getBlogBySlug = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
-    const blog = await blogService.getBlogById(id);
-    res.json({ success: true, blog });
+    const slug = req.params.slug;
+    const blog = await blogService.fetchBlogBySlug(slug);
+
     if (!blog) {
       res.status(404).json({ success: false, message: "Blog not found" });
     }
+    res.json({ success: true, blog });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error });
   }
@@ -40,9 +62,18 @@ export const getBlogById = async (req: Request, res: Response) => {
 
 export const updateBlog = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const slug = req.params.slug;
     const data: UpdateBlogInput = req.body;
-    const blog = await blogService.updateBlog(id, data);
+    const { error } = updateBlogSchema.validate(data);
+    if (error)
+      return res
+        .status(400)
+        .json({ success: false, message: error.details[0].message });
+
+    if (req.file) {
+      data.image = req.file.filename;
+    }
+    const blog = await blogService.updateBlog(slug, data);
     if (!blog)
       return res
         .status(404)
@@ -55,8 +86,8 @@ export const updateBlog = async (req: Request, res: Response) => {
 
 export const deleteBlog = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
-    const deleted = await blogService.deleteBlog(id);
+    const slug = req.params.slug;
+    const deleted = await blogService.deleteBlog(slug);
     if (!deleted)
       return res
         .status(404)
