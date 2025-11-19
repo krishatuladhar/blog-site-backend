@@ -13,12 +13,12 @@ export type UpdateBlogInput = Partial<BlogBase>;
 export type Blog = BlogBase & {
   id: number;
   author_id: number;
-  created_at: string;
+  created_at: string;                   
   slug: string;
 };
 
 export type PaginatedBlogs = {
-  blogs: Blog[];
+  blogs: Blog[];                      
   total: number;
   page: number;
   limit: number;

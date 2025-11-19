@@ -1,16 +1,16 @@
 import express from "express";
 import {
-  createAuthor,
   updateAuthor,
   getAuthor,
   deleteAuthor,
 } from "../controllers/authorController";
 import { upload } from "../middlewares/upload";
+import { protect } from "../middlewares/protect";
 
-const authorRouter = express.Router();
-authorRouter.post("/", upload.single("profile"), createAuthor);
-authorRouter.get("/:id", getAuthor);
-authorRouter.delete("/:id", deleteAuthor);
-authorRouter.put("/:id", upload.single("profile"), updateAuthor);
 
-export default authorRouter;
+const authorRoutes = express.Router();
+authorRoutes.get("/:id", protect, getAuthor);
+authorRoutes.delete("/:id", protect, deleteAuthor);
+authorRoutes.put("/:id", protect, upload.single("profile"), updateAuthor);
+
+export default authorRoutes;

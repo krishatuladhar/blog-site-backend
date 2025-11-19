@@ -5,6 +5,7 @@ import {
   createAuthorSchema,
   updateAuthorSchema,
 } from "../validators/authorValidators";
+import jwt from "jsonwebtoken";
 export const createAuthor = async (req: Request, res: Response) => {
   try {
     const data: CreateAuthorInput = req.body;
@@ -31,6 +32,47 @@ export const createAuthor = async (req: Request, res: Response) => {
     console.log(error);
   }
 };
+
+export const loginAuthor = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    console.log(req.body);
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email and password are required" });
+    }
+
+    const user = await authorService.loginAuthor(email, password);
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid email or password" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined in environment");
+    }
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      user,
+      token,
+    });
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({ success: false, message: "Server error", error });
+    console.log(error);
+  }
+};
+
 export const getAuthor = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);

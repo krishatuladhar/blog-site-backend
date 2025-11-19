@@ -42,7 +42,7 @@ export const getAllBlogs = async (
   const totalResult = await pool.query(`SELECT COUNT(*) FROM blogs`);
   const total = Number(totalResult.rows[0].count);
   const result = await pool.query(
-    `SELECT b.id, b.title, b.description, b.image, a.id AS author_id, a.name AS author_name
+    `SELECT b.id, b.title, b.description, b.image, a.id AS author_id, a.name AS author_name                                              
    FROM blogs b
    JOIN authors a ON a.id = b.author_id
    ORDER BY b.created_at DESC

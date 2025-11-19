@@ -16,7 +16,7 @@ export const createBlog = async (req: Request, res: Response) => {
         .status(400)
         .json({ success: false, message: error.details[0].message });
 
-    if (req.file) {
+    if (req.file) {                       
       data.image = req.file.filename;
       console.log(data.image);
     }
@@ -38,7 +38,7 @@ export const getAllBlogs = async (req: Request, res: Response) => {
     console.log(req.query);
 
     const blogs = await blogService.getAllBlogs(limit, offset);
-    blogs.page = page;
+    blogs.page = page;                                
     console.log(blogs);
     res.json({ success: true, ...blogs });
   } catch (error: any) {
@@ -71,7 +71,7 @@ export const updateBlog = async (req: Request, res: Response) => {
         .json({ success: false, message: error.details[0].message });
 
     if (req.file) {
-      data.image = req.file.filename;
+      data.image = req.file.filename;            
     }
     const blog = await blogService.updateBlog(slug, data);
     if (!blog)
