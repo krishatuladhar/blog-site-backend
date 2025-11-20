@@ -1,6 +1,7 @@
 import { Response, NextFunction, Request } from "express";
 import jwt from "jsonwebtoken";
 import { JWTPayload } from "../types/common";
+import { RoleEnum } from "../types/authorTypes";
 
 export const authenticate = (
   req: Request,
@@ -20,10 +21,9 @@ export const authenticate = (
 
     req.user = {
       id: decoded.id,
-      email: decoded.email,
-      role: decoded.role,
+      email: "decoded.email",
+      role: RoleEnum.USER,
     };
-
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid or expired token" });

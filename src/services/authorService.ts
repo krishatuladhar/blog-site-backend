@@ -11,17 +11,19 @@ export const createAuthor = async (
   isRegister = false
 ): Promise<Author> => {
   const { name, profile, email, password, role } = data;
-  const nameCheck = await pool.query(`SELECT id FROM authors WHERE name=$1`, [
-    name,
-  ]);
+  const nameCheck = await pool.query(
+    `SELECT id FROM authors WHERE name=$1 AND deleted_at IS NULL`,
+    [name]
+  );
   if ((nameCheck.rowCount ?? 0) > 0) {
     throw new Error(`Author with name "${name}" already exists`);
   }
 
   if (isRegister && email) {
-    const existing = await pool.query(`SELECT id FROM authors WHERE email=$1`, [
-      email,
-    ]);
+    const existing = await pool.query(
+      `SELECT id FROM authors WHERE email=$1 AND deleted_at IS NULL`,
+      [email]
+    );
     if ((existing.rowCount ?? 0) > 0) {
       throw new Error(`Email "${email}" already exists`);
     }
@@ -40,9 +42,10 @@ export const loginAuthor = async (
   email: string,
   password: string
 ): Promise<Author | null> => {
-  const result = await pool.query(`SELECT * FROM authors WHERE email=$1`, [
-    email,
-  ]);
+  const result = await pool.query(
+    `SELECT * FROM authors WHERE email=$1 AND deleted_at IS NULL`,
+    [email]
+  );
   const user = result.rows[0];
   if (!user) return null;
 
@@ -55,7 +58,7 @@ export const loginAuthor = async (
 
 export const getAuthor = async (id: number): Promise<Author> => {
   const result = await pool.query(
-    `SELECT * FROM authors WHERE id = $1 ORDER BY created_at DESC`,
+    `SELECT * FROM authors WHERE id = $1 AND  deleted_at IS NULL ORDER BY created_at DESC`,
     [id]
   );
 
@@ -69,9 +72,10 @@ export const updateAuthor = async (
   data: UpdateAuthorInput
 ): Promise<Author> => {
   const { name, profile, email, password, role } = data;
-  const authorCheck = await pool.query(`SELECT id FROM authors WHERE id=$1`, [
-    id,
-  ]);
+  const authorCheck = await pool.query(
+    `SELECT id FROM authors WHERE id=$1 AND deleted_at IS NULL`,
+    [id]
+  );
   if (authorCheck.rowCount === 0) {
     throw new Error(`Author with id ${id} does not exist`);
   }
@@ -81,7 +85,7 @@ export const updateAuthor = async (
   const result = await pool.query(
     `UPDATE authors SET name=COALESCE($1,name), profile=COALESCE($2,profile), email = COALESCE($3,email),
        password = COALESCE($4,password),
-       role = COALESCE($5,role) WHERE id=$6 RETURNING *`,
+       role = COALESCE($5,role) WHERE id=$6 and deleted_at IS NULL RETURNING *`,
     [name, profile, email, hashedPassword, role, id]
   );
 
@@ -89,12 +93,16 @@ export const updateAuthor = async (
 };
 
 export const deleteAuthor = async (id: number): Promise<boolean> => {
-  const authorCheck = await pool.query(`SELECT id FROM authors WHERE id=$1`, [
-    id,
-  ]);
+  const authorCheck = await pool.query(
+    `SELECT id FROM authors WHERE id=$1 AND deleted_at IS NULL`,
+    [id]
+  );
   if (authorCheck.rowCount === 0) {
     throw new Error(`Author with id ${id} does not exist`);
   }
-  const result = await pool.query(`DELETE FROM authors WHERE id=$1`, [id]);
+  const result = await pool.query(
+    `UPDATE authors SET deleted_at= NOW() WHERE id=$1 AND deleted_at IS NULL`,
+    [id]
+  );
   return (result.rowCount ?? 0) > 0;
 };

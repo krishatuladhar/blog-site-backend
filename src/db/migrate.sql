@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS blogs (
   description VARCHAR(400) NOT NULL,
   image VARCHAR(120),
   slug VARCHAR(200) NOT NULL UNIQUE,
+  isFeatured boolean DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP DEFAULT NULL
 );
