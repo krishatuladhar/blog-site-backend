@@ -1,9 +1,14 @@
+export enum RoleEnum {
+  USER = "user",
+  AUTHOR = "author",
+}
+
 export type AuthorBase = {
   email: string;
   password?: string;
   name: string;
   profile?: string | null;
-  role: "user" | "author";
+  role: RoleEnum;
 };
 
 export type CreateAuthorInput = AuthorBase;

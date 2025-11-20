@@ -5,12 +5,11 @@ import {
   deleteAuthor,
 } from "../controllers/authorController";
 import { upload } from "../middlewares/upload";
-import { protect } from "../middlewares/protect";
-
+import { authenticate } from "../middlewares/authenticate";
 
 const authorRoutes = express.Router();
-authorRoutes.get("/:id", protect, getAuthor);
-authorRoutes.delete("/:id", protect, deleteAuthor);
-authorRoutes.put("/:id", protect, upload.single("profile"), updateAuthor);
+authorRoutes.get("/:id", authenticate, getAuthor);
+authorRoutes.delete("/:id", authenticate, deleteAuthor);
+authorRoutes.put("/:id", authenticate, upload.single("profile"), updateAuthor);
 
 export default authorRoutes;

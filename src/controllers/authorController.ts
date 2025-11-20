@@ -50,13 +50,9 @@ export const loginAuthor = async (req: Request, res: Response) => {
         .json({ success: false, message: "Invalid email or password" });
     }
 
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET is not defined in environment");
-    }
-
     const token = jwt.sign(
       { id: user.id, role: user.role, email: user.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET!,
       { expiresIn: "1h" }
     );
 
