@@ -17,7 +17,7 @@ export const createBlog = async (data: CreateBlogInput): Promise<Blog> => {
     [author_id]
   );
   if (authorCheck.rowCount === 0) {
-    throw new Error(`Author with id ${author_id} does not exist`);
+    throw new Error(`Unable to create blog`);
   }
   const titleCheck = await pool.query(
     `SELECT id FROM blogs WHERE author_id=$1 AND title=$2 AND deleted_at IS NULL`,
@@ -114,7 +114,7 @@ export const updateBlog = async (
     [slug]
   );
   if (blogCheck.rowCount === 0) {
-    throw new Error(`Blog with slug "${slug}" does not exist`);
+    throw new Error(`Unable to update blog`);
   }
   let newSlug: string | null = null;
   if (title) {
@@ -141,7 +141,7 @@ export const deleteBlog = async (slug: string): Promise<boolean> => {
     [slug]
   );
   if (blogCheck.rowCount === 0) {
-    throw new Error(`Blog with slug ${slug} does not exist`);
+    throw new Error(`Unable to delete blog`);
   }
   const result = await pool.query(
     `UPDATE blogs SET deleted_at = NOW() WHERE slug = $1 AND deleted_at IS NULL`,

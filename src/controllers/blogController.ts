@@ -13,7 +13,6 @@ import {
 export const createBlog = async (req: Request, res: Response) => {
   try {
     const data: CreateBlogInput = req.body;
-    console.log(req.body);
     const { error } = createBlogSchema.validate(data);
     if (error)
       return res
@@ -26,13 +25,14 @@ export const createBlog = async (req: Request, res: Response) => {
     }
 
     const blog = await blogService.createBlog(data);
-    console.log(blog);
     res
       .status(201)
       .json({ success: true, message: "Blog Created successfully", blog });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error });
-    console.log(error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ success: false, message: err.message || "Server error", error });
   }
 };
 
@@ -47,8 +47,11 @@ export const getAllBlogs = async (req: Request, res: Response) => {
 
     const blogs = await blogService.getAllBlogs(paginationData);
     res.json({ success: true, ...blogs });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (error: unknown) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ success: false, message: err.message || "Server error", error });
   }
 };
 export const getBlogBySlug = async (req: Request, res: Response) => {
@@ -60,8 +63,11 @@ export const getBlogBySlug = async (req: Request, res: Response) => {
       res.status(404).json({ success: false, message: "Blog not found" });
     }
     res.json({ success: true, blog });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error });
+  } catch (error: unknown) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ success: false, message: err.message || "Server error", error });
   }
 };
 
@@ -84,8 +90,11 @@ export const updateBlog = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Blog not found" });
     res.json({ success: true, blog });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error });
+  } catch (error: unknown) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ success: false, message: err.message || "Server error", error });
   }
 };
 
@@ -98,7 +107,10 @@ export const deleteBlog = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "Blog not found" });
     res.json({ success: true, message: "Blog deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error });
+  } catch (error: unknown) {
+    const err = error as Error;
+    res
+      .status(500)
+      .json({ success: false, message: err.message || "Server error", error });
   }
 };

@@ -20,10 +20,7 @@ export const createAuthor = async (
   }
 
   if (isRegister && email) {
-    const existing = await pool.query(
-      `SELECT id FROM authors WHERE email=$1 AND deleted_at IS NULL`,
-      [email]
-    );
+    const existing = await findUserByEmail(email);
     if ((existing.rowCount ?? 0) > 0) {
       throw new Error(`Email "${email}" already exists`);
     }
@@ -42,12 +39,11 @@ export const loginAuthor = async (
   email: string,
   password: string
 ): Promise<Author | null> => {
-  const result = await pool.query(
-    `SELECT * FROM authors WHERE email=$1 AND deleted_at IS NULL`,
-    [email]
-  );
+  const result = await findUserByEmail(email);
   const user = result.rows[0];
-  if (!user) return null;
+  if (!user) {
+    throw new Error("Invalid credentials");
+  }
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return null;
@@ -55,12 +51,22 @@ export const loginAuthor = async (
   delete user.password;
   return user;
 };
-
-export const getAuthor = async (id: number): Promise<Author> => {
+export const findUserByEmail = async (email: string) => {
+  const result = await pool.query(
+    `SELECT * FROM authors WHERE email = $1 AND  deleted_at IS NULL ORDER BY created_at DESC`,
+    [email]
+  );
+  return result;
+};
+export const findUserById = async (id: number) => {
   const result = await pool.query(
     `SELECT * FROM authors WHERE id = $1 AND  deleted_at IS NULL ORDER BY created_at DESC`,
     [id]
   );
+  return result;
+};
+export const getAuthor = async (id: number): Promise<Author> => {
+  const result = await findUserById(id);
 
   if (result.rowCount === 0) throw new Error("Author not found");
 
@@ -72,10 +78,7 @@ export const updateAuthor = async (
   data: UpdateAuthorInput
 ): Promise<Author> => {
   const { name, profile, email, password, role } = data;
-  const authorCheck = await pool.query(
-    `SELECT id FROM authors WHERE id=$1 AND deleted_at IS NULL`,
-    [id]
-  );
+  const authorCheck = await findUserById(id);
   if (authorCheck.rowCount === 0) {
     throw new Error(`Author with id ${id} does not exist`);
   }
@@ -93,10 +96,7 @@ export const updateAuthor = async (
 };
 
 export const deleteAuthor = async (id: number): Promise<boolean> => {
-  const authorCheck = await pool.query(
-    `SELECT id FROM authors WHERE id=$1 AND deleted_at IS NULL`,
-    [id]
-  );
+  const authorCheck = await findUserById(id);
   if (authorCheck.rowCount === 0) {
     throw new Error(`Author with id ${id} does not exist`);
   }
