@@ -8,11 +8,27 @@ import {
 } from "../controllers/blogController";
 import { upload } from "../middlewares/upload";
 
-const blogRouter = express.Router();
-blogRouter.post("/", upload.single("image"), createBlog);
-blogRouter.get("/", getAllBlogs);
-blogRouter.get("/:slug", getBlogBySlug);
-blogRouter.put("/:slug", upload.single("image"), updateBlog);
-blogRouter.delete("/:slug", deleteBlog);
+import { authenticate } from "../middlewares/authenticate";
+import { authorize } from "../middlewares/authorize";
 
-export default blogRouter;
+const blogRoutes = express.Router();
+blogRoutes.get("/", getAllBlogs);
+blogRoutes.get("/:slug", getBlogBySlug);
+
+blogRoutes.post(
+  "/",
+  authenticate,
+  authorize("author"),
+  upload.single("image"),
+  createBlog
+);
+blogRoutes.put(
+  "/:slug",
+  authenticate,
+  authorize("author"),
+  upload.single("image"),
+  updateBlog
+);
+blogRoutes.delete("/:slug", authenticate, authorize("author"), deleteBlog);
+
+export default blogRoutes;
