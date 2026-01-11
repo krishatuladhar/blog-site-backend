@@ -11,7 +11,10 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.static(path.join(__dirname, "uploads")));
+console.log("CWD:", process.cwd());
+console.log("Uploads absolute path:", path.join(process.cwd(), "uploads"));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 app.use(express.json());
 
 app.use(express.urlencoded({ extended: true }));

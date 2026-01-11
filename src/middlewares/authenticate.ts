@@ -1,15 +1,15 @@
 import { Response, NextFunction, Request } from "express";
 import jwt from "jsonwebtoken";
 import { JWTPayload } from "../types/common";
+import { findUserByIdService } from "../services/userService";
 
-export const authenticate = (
+export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   const authHeader = req.headers.authorization;
 
- 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Unauthorized: No token" });
   }
@@ -19,12 +19,17 @@ export const authenticate = (
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
 
+    const user = await findUserByIdService(decoded.id);
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized: User no longer exists" });
+    }
     req.user = {
-      id: decoded.id,
-      email: decoded.email,
-      role: decoded.role,
+      id: user.id,
+      email: user.email,
+      role: user.role,
     };
-     
 
     next();
   } catch (err) {

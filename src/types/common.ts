@@ -1,4 +1,4 @@
-import { RoleEnum } from "./authorTypes";
+import { RoleEnum } from "./userType";
 
 export type User = {
   id: number;
