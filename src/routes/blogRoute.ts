@@ -1,10 +1,11 @@
 import express from "express";
 import {
-  createBlog,
-  deleteBlog,
-  getAllBlogs,
-  getBlogBySlug,
-  updateBlog,
+  createBlogController,
+  deleteBlogController,
+  getAllBlogsController,
+  getBlogBySlugController,
+  getMyBlogsController,
+  updateBlogController,
 } from "../controllers/blogController";
 import { upload } from "../middlewares/upload";
 
@@ -12,23 +13,34 @@ import { authenticate } from "../middlewares/authenticate";
 import { authorize } from "../middlewares/authorize";
 
 const blogRoutes = express.Router();
-blogRoutes.get("/", getAllBlogs);
-blogRoutes.get("/:slug", getBlogBySlug);
+blogRoutes.get(
+  "/my-blogs",
+  authenticate,
+  authorize("author"),
+  getMyBlogsController
+);
+blogRoutes.get("/", getAllBlogsController);
+blogRoutes.get("/:slug", getBlogBySlugController);
 
 blogRoutes.post(
   "/",
   authenticate,
   authorize("author"),
   upload.single("image"),
-  createBlog
+  createBlogController
 );
 blogRoutes.put(
   "/:slug",
   authenticate,
   authorize("author"),
   upload.single("image"),
-  updateBlog
+  updateBlogController
 );
-blogRoutes.delete("/:slug", authenticate, authorize("author"), deleteBlog);
+blogRoutes.delete(
+  "/:slug",
+  authenticate,
+  authorize("author"),
+  deleteBlogController
+);
 
 export default blogRoutes;

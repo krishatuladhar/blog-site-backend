@@ -1,23 +1,25 @@
 import pool from "../config/db";
 import {
   Blog,
-  CreateBlogInput,
-  UpdateBlogInput,
+  createBlogInput,
+  updateBlogInput,
   ApiResponse,
   FilterQuery,
-} from "../types/blogTypes";
+} from "../types/blogType";
 import { paginate } from "../utils/pagination";
 import { slugify } from "../utils/slugify";
 import { v4 as uuidv4 } from "uuid";
 
-export const createBlog = async (data: CreateBlogInput): Promise<Blog> => {
-  const { author_id, title, description, image } = data;
+export const createBlogService = async (
+  data: createBlogInput
+): Promise<Blog> => {
+  const { author_id, title, description, category, image, isFeatured } = data;
   const authorCheck = await pool.query(
-    `SELECT id FROM authors WHERE id=$1 AND deleted_at IS NULL`,
+    `SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL`,
     [author_id]
   );
   if (authorCheck.rowCount === 0) {
-    throw new Error(`Author with id ${author_id} does not exist`);
+    throw new Error(`Unable to create blog`);
   }
   const titleCheck = await pool.query(
     `SELECT id FROM blogs WHERE author_id=$1 AND title=$2 AND deleted_at IS NULL`,
@@ -26,63 +28,95 @@ export const createBlog = async (data: CreateBlogInput): Promise<Blog> => {
   if ((titleCheck.rowCount ?? 0) > 0) {
     throw new Error(`Blog with this title already exists for this author`);
   }
+  if (isFeatured) {
+    await pool.query(
+      `UPDATE blogs SET isFeatured = false WHERE isFeatured = true`
+    );
+  }
+
   const slug = `${slugify(title)}-${uuidv4().substring(0, 8)}`;
 
   const insertResult = await pool.query(
-    `INSERT INTO blogs(title, description, author_id, image, slug)
-     VALUES($1, $2, $3, $4, $5)
+    `INSERT INTO blogs(title, description,category, author_id, image, slug,isFeatured)
+     VALUES($1, $2, $3, $4, $5, $6 ,$7)
      RETURNING *`,
-    [title, description, author_id, image ?? null, slug]
+    [title, description, category, author_id, image ?? null, slug, isFeatured]
   );
+  const featuredCheck = await pool.query(
+    `SELECT id FROM blogs WHERE isFeatured = true`
+  );
+
+  if (featuredCheck.rowCount === 0) {
+    const fallback = await pool.query(`
+      UPDATE blogs SET isFeatured = true 
+      WHERE id = (SELECT id FROM blogs ORDER BY created_at ASC LIMIT 1)
+      RETURNING *
+    `);
+    return fallback.rows[0];
+  }
 
   return insertResult.rows[0];
 };
 
-export const getAllBlogs = async (
-  data: FilterQuery
+export const getAllBlogsService = async (
+  data: FilterQuery,
+  authorId?: number
 ): Promise<ApiResponse<Blog>> => {
   const { page, limit, offset } = paginate({
     page: data.page,
     limit: data.limit,
   });
-  const params: (string | number)[] = [];
-  let query = `
-    SELECT b.id, b.title, b.description, b.image, a.id AS author_id, a.name AS author_name
-    FROM blogs b
-    JOIN authors a ON a.id = b.author_id WHERE b.deleted_at IS NULL
-  `;
+  const params: (string | number | boolean)[] = [];
+  const whereClauses: string[] = ["b.deleted_at IS NULL"];
 
-  // Optional search
-  if (data.search) {
-    params.push(`%${data.search}%`);
-    query += ` AND b.title ILIKE $${params.length}`;
+  // Author filter
+  if (authorId) {
+    params.push(authorId);
+    whereClauses.push(`b.author_id = $${params.length}`);
   }
 
-  // Optional sort
-  query +=
-    data.sort === "asc"
-      ? " ORDER BY b.created_at ASC"
-      : " ORDER BY b.created_at DESC";
+   if (data.isFeatured === true) {
+     params.push(true);
+     whereClauses.push(`b.isFeatured = $${params.length}`);
+   }
 
-  // Pagination
-  params.push(limit || 10, offset);
-  query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
+  // Search filter (only on blogs)
+  if (data.search) {
+    params.push(`%${data.search}%`);
+    const idx = params.length;
+    whereClauses.push(
+      `(b.title ILIKE $${idx} OR b.description ILIKE $${idx} OR b.category ILIKE $${idx})`
+    );
+  }
+
+  const whereSQL = whereClauses.length
+    ? "WHERE " + whereClauses.join(" AND ")
+    : "";
+
+  // Sorting purely by created_at DESC
+  const query = `
+    SELECT 
+      b.id, b.title, b.description, b.image, b.category, b.slug, b.isFeatured, b.created_at AS date,
+      a.id AS author_id, a.name AS author_name, a.profile AS author_profile
+    FROM blogs b
+    JOIN users a ON a.id = b.author_id
+    ${whereSQL}
+    ORDER BY b.created_at DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+  `;
+  params.push(limit, offset);
 
   const result = await pool.query(query, params);
 
-  // Default: Count all blogs
-  let totalQuery = `SELECT COUNT(*) FROM blogs WHERE deleted_at IS NULL`;
-  const totalParams: any[] = [];
-
-  // If there's a search term
-  if (data.search) {
-    totalQuery += ` AND title ILIKE $1`;
-    totalParams.push(`%${data.search}%`);
-  }
-
-  const totalResult = await pool.query(totalQuery, totalParams);
+  // Total count for pagination
+  const totalQuery = `SELECT COUNT(*) FROM blogs b ${whereSQL}`;
+  const totalResult = await pool.query(
+    totalQuery,
+    params.slice(0, params.length - 2)
+  );
   const total = Number(totalResult.rows[0].count);
   const totalPage = Math.ceil(total / limit);
+
   return {
     data: result.rows,
     pagination: {
@@ -93,55 +127,74 @@ export const getAllBlogs = async (
     },
   };
 };
-export const fetchBlogBySlug = async (slug: string): Promise<Blog | null> => {
+export const fetchBlogBySlugService = async (
+  slug: string
+): Promise<Blog | null> => {
   const result = await pool.query(
-    `SELECT b.*, a.name AS author_name, a.profile AS author_profile
+    `SELECT b.*, b.created_at AS date, a.name AS author_name, a.profile AS author_profile
      FROM blogs b
-     JOIN authors a ON a.id = b.author_id
+     JOIN users a ON a.id = b.author_id
      WHERE b.slug = $1 AND b.deleted_at IS NULL`,
     [slug]
   );
   return result.rows[0] || null;
 };
 
-export const updateBlog = async (
+export const updateBlogService = async (
   slug: string,
-  data: UpdateBlogInput
+  data: updateBlogInput
 ): Promise<Blog | null> => {
-  const { title, description, image } = data;
+  const { title, description, category, image, isFeatured } = data;
   const blogCheck = await pool.query(
     `SELECT * FROM blogs WHERE slug=$1 AND deleted_at IS NULL`,
     [slug]
   );
   if (blogCheck.rowCount === 0) {
-    throw new Error(`Blog with slug "${slug}" does not exist`);
+    throw new Error(`Unable to update blog`);
   }
   let newSlug: string | null = null;
   if (title) {
     newSlug = `${slugify(title)}-${uuidv4().substring(0, 8)}`;
   }
+  if (isFeatured === true) {
+    await pool.query(`UPDATE blogs SET isFeatured = false WHERE slug <> $1`, [
+      slug,
+    ]);
+  }
+
   const result = await pool.query(
     `UPDATE blogs
      SET
        title = COALESCE($1, title),
        description = COALESCE($2, description),
-       image = COALESCE($3, image),
-       slug = COALESCE($4, slug)
-     WHERE slug = $5 AND deleted_at IS NULL
+       category = COALESCE($3,category),
+       image = COALESCE($4, image),
+       slug = COALESCE($5, slug),
+       isFeatured = COALESCE($6, isFeatured)
+     WHERE slug = $7 AND deleted_at IS NULL
      RETURNING *`,
-    [title, description, image, newSlug, slug]
+    [title, description, category, image, newSlug, isFeatured, slug]
   );
+  const featuredCheck = await pool.query(
+    `SELECT id FROM blogs WHERE isFeatured = true`
+  );
+  if (featuredCheck.rowCount === 0) {
+    await pool.query(`
+      UPDATE blogs SET isFeatured = true 
+      WHERE id = (SELECT id FROM blogs ORDER BY created_at ASC LIMIT 1)
+    `);
+  }
 
   return result.rows[0] || null;
 };
 
-export const deleteBlog = async (slug: string): Promise<boolean> => {
+export const deleteBlogService = async (slug: string): Promise<boolean> => {
   const blogCheck = await pool.query(
     `SELECT id FROM blogs WHERE slug=$1 AND deleted_at IS NULL`,
     [slug]
   );
   if (blogCheck.rowCount === 0) {
-    throw new Error(`Blog with slug ${slug} does not exist`);
+    throw new Error(`Unable to delete blog`);
   }
   const result = await pool.query(
     `UPDATE blogs SET deleted_at = NOW() WHERE slug = $1 AND deleted_at IS NULL`,
